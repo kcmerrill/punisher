@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/kcmerrill/punisher.svg?branch=master)](https://travis-ci.org/kcmerrill/punisher) [![Go Report Card](https://goreportcard.com/badge/github.com/kcmerrill/punisher)](https://goreportcard.com/report/github.com/kcmerrill/punisher)
+[![Build Status](https://travis-ci.org/kcmerrill/punisher.svg?branch=master)](https://travis-ci.org/kcmerrill/punisher) [![Go Report Card](https://goreportcard.com/badge/github.com/kcmerrill/punisher)](https://goreportcard.com/report/github.com/kcmerrill/punisher) 
 
 ![Punisher](assets/punisher.jpg "Punisher")
 
