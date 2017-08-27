@@ -4,7 +4,7 @@ Punisher is a simple app that will run a command repeatedly. The need for this a
 ## Usage
 
 ```bash
-$> punisher --workers 100 --nice 10 <command to run>
+$> punisher --workers <int:100> --nice <duration:0s> --duration <duration:forever> <command to run>
 
 #example
 $> punisher curl https://kcmerrill.com
