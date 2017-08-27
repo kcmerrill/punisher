@@ -8,6 +8,7 @@ The easiest way to get running with punisher is to run the binary with the comma
 ```bash
 #easiest usage
 $> punisher <command_to_run>
+
 #usage
 $> punisher --workers <int:100> --nice <duration:0s> --duration <duration:forever> <command_to_run>
 
