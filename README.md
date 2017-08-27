@@ -11,7 +11,7 @@ $> punisher curl https://kcmerrill.com
 ```
 
 ### Parameters
-* *workers* are how many `threads` to spin up
-* *duration* how long should this run for? Default is forever.
-* *nice* golang `duration` after a command is run(A simple way to throttle or batch)
+* **workers** are how many `threads` to spin up
+* **duration** how long should this run for? Default is forever.
+* **nice** golang `duration` after a command is run(A simple way to throttle or batch)
 
