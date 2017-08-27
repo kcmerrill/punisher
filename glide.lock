@@ -1,0 +1,28 @@
+hash: 19082f1c342b3c191ad4112db5427a33d45dee1a90a36c3a48c9332d2d27aa76
+updated: 2017-08-26T22:11:42.723379-06:00
+imports:
+- name: github.com/fatih/color
+  version: 67c513e5729f918f5e69786686770c27141a4490
+- name: github.com/gorilla/mux
+  version: ac112f7d75a0714af1bd86ab17749b31f7809640
+- name: github.com/mattn/go-runewidth
+  version: 97311d9f7767e3d6f422ea06661bc2c7a19e8a5d
+- name: github.com/olekukonko/tablewriter
+  version: be5337e7b39e64e5f91445ce7e721888dbab7387
+- name: github.com/satori/go.uuid
+  version: 5bf94b69c6b68ee1b541973bb8e1144db23a194b
+- name: github.com/spf13/cobra
+  version: 2df9a531813370438a4d79bfc33e21f58063ed87
+- name: github.com/spf13/viper
+  version: 25b30aa063fc18e48662b86996252eabdcf2f0c7
+- name: golang.org/x/crypto
+  version: 81e90905daefcd6fd217b62423c0908922eadb30
+  subpackages:
+  - ssh/terminal
+- name: gopkg.in/cheggaaa/pb.v1
+  version: 657164d0228d6bebe316fdf725c69f131a50fb10
+- name: gopkg.in/yaml.v2
+  version: eb3733d160e74a9c7e442f435eb3bea458e1d19f
+testImports:
+- name: github.com/rs/xid
+  version: 02dd45c33376f85d1064355dc790dcc4850596b1
