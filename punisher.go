@@ -53,6 +53,7 @@ func (p *punisher) pain() {
 					p.wg.Done()
 					return
 				default:
+					<-time.After(nice)
 					command := exec.Command("sh", "-c", cmd)
 					command.CombinedOutput()
 					if !command.ProcessState.Success() {
@@ -64,7 +65,6 @@ func (p *punisher) pain() {
 						p.success++
 						p.lock.Unlock()
 					}
-					<-time.After(nice)
 				}
 			}
 		}(id, p.nice, p.cmd)
@@ -90,6 +90,7 @@ func (p *punisher) track() {
 		<-time.After(time.Second)
 	}
 }
+
 func (p *punisher) shutdown() {
 	signal.Notify(p.signals, syscall.SIGINT, syscall.SIGTERM)
 	if p.duration == 0*time.Second {
