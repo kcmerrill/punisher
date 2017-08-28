@@ -1,11 +1,12 @@
 [![Build Status](https://travis-ci.org/kcmerrill/punisher.svg?branch=master)](https://travis-ci.org/kcmerrill/punisher) [![Go Report Card](https://goreportcard.com/badge/github.com/kcmerrill/punisher)](https://goreportcard.com/report/github.com/kcmerrill/punisher)
-![Punisher](assets/punisher.jpg "Punisher") 
+
+![Punisher](assets/punisher.jpg "Punisher")
 
 Punisher is a simple app that will run a command repeatedly. The need for this app came about because I'm always finding myself writing one off scripts to run commands to inject a lot of data. Be it hammering a mysql database to test [gh-ost](https://github.com/github/gh-ost) migrations, testing queues like [genie](https://github.com/kcmerrill/genie) or others like [fetch-proxy](https://github.com/kcmerrill/fetch-proxy).
 
 ## Usage
 
-The easiest way to get running with punisher is to run the binary with the command you want to execute. 
+The easiest way to get running with punisher is to run the binary with the command you want to execute.
 
 ```bash
 #easiest usage
@@ -24,6 +25,15 @@ $> punisher curl https://kcmerrill.com
 * **workers** are how many `threads` to spin up
 * **duration** how long should this run for? Default is forever.
 * **nice** golang `duration` after a command is run(A simple way to throttle or batch)
+
+### Command can be a template
+
+When you run a command, you can pass in a template. This means you can alternate data, you can if/else. On top of that, `.Date` and `.UniqID` are both special template params that can be used.
+
+```bash
+#example using 'UniqID'
+$> punisher curl http://kcmerrill.com/{{ .UniqID }}
+```
 
 ## Binaries || Installation
 

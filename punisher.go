@@ -1,12 +1,16 @@
 package main
 
 import (
+	"bytes"
+	"html/template"
 	"os"
 	"os/exec"
 	"os/signal"
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/rs/xid"
 
 	pb "gopkg.in/cheggaaa/pb.v1"
 )
@@ -53,7 +57,9 @@ func (p *punisher) pain() {
 					p.wg.Done()
 					return
 				default:
-					command := exec.Command("sh", "-c", cmd)
+					<-time.After(nice)
+					cmdParsed := p.prepCmd(cmd)
+					command := exec.Command("sh", "-c", cmdParsed)
 					command.CombinedOutput()
 					if !command.ProcessState.Success() {
 						p.lock.Lock()
@@ -64,11 +70,11 @@ func (p *punisher) pain() {
 						p.success++
 						p.lock.Unlock()
 					}
-					<-time.After(nice)
 				}
 			}
 		}(id, p.nice, p.cmd)
 	}
+
 	go p.track()
 	go p.shutdown()
 	p.wg.Wait()
@@ -90,6 +96,7 @@ func (p *punisher) track() {
 		<-time.After(time.Second)
 	}
 }
+
 func (p *punisher) shutdown() {
 	signal.Notify(p.signals, syscall.SIGINT, syscall.SIGTERM)
 	if p.duration == 0*time.Second {
@@ -105,4 +112,28 @@ func (p *punisher) shutdown() {
 	for workers := 1; workers <= p.workers; workers++ {
 		p.stop <- true
 	}
+}
+
+func (p *punisher) prepCmd(cmd string) string {
+
+	commandOptions := struct {
+		UniqID string
+		Date   time.Time
+	}{
+		UniqID: xid.New().String(),
+		Date:   time.Now(),
+	}
+
+	tmpl, parseErr := template.New(commandOptions.UniqID).Parse(cmd)
+	if parseErr != nil {
+		return cmd
+	}
+
+	cmdParsed := new(bytes.Buffer)
+	executionErr := tmpl.Execute(cmdParsed, commandOptions)
+	if executionErr != nil {
+		return cmd
+	}
+
+	return cmdParsed.String()
 }
