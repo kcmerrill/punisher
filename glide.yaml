@@ -1,0 +1,4 @@
+package: github.com/kcmerrill/punisher
+import:
+- package: gopkg.in/cheggaaa/pb.v1
+  version: ^2.0.4
