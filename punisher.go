@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"html/template"
 	"os"
 	"os/exec"
@@ -15,7 +16,7 @@ import (
 	pb "gopkg.in/cheggaaa/pb.v1"
 )
 
-func punish(nice, duration time.Duration, workers int, cmd string) {
+func punish(nice, duration time.Duration, verbose bool, workers int, cmd string) {
 	// setup our punisher
 	p := &punisher{
 		nice:     nice,
@@ -25,6 +26,7 @@ func punish(nice, duration time.Duration, workers int, cmd string) {
 		signals:  make(chan os.Signal, 1),
 		wg:       sync.WaitGroup{},
 		stop:     make(chan bool),
+		verbose:  verbose,
 	}
 
 	if cmd != "" {
@@ -40,6 +42,7 @@ type punisher struct {
 	workers  int
 	cmd      string
 	success  int
+	verbose  bool
 	failure  int
 	lock     sync.Mutex
 	stop     chan bool
@@ -60,11 +63,14 @@ func (p *punisher) pain() {
 					<-time.After(nice)
 					cmdParsed := p.prepCmd(cmd)
 					command := exec.Command("sh", "-c", cmdParsed)
-					command.CombinedOutput()
+					output, _ := command.CombinedOutput()
 					if !command.ProcessState.Success() {
 						p.lock.Lock()
 						p.failure++
 						p.lock.Unlock()
+						if p.verbose {
+							fmt.Println("id#", id, ">", string(output))
+						}
 					} else {
 						p.lock.Lock()
 						p.success++
