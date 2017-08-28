@@ -32,7 +32,7 @@ When you run a command, you can pass in a template. This means you can alternate
 
 ```bash
 #example using 'UniqID'
-$> punisher curl http://kcmerrill.com/{{ .UniqID }}
+$> punisher curl http://crush.kcmerrill.com/demo/{{ .UniqID }}
 ```
 
 ## Binaries || Installation
