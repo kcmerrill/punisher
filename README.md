@@ -26,7 +26,7 @@ $> punisher curl https://kcmerrill.com
 * **duration** how long should this run for? Default is forever.
 * **nice** golang `duration` after a command is run(A simple way to throttle or batch)
 
-### Command can be a template
+### Templated Commands
 
 When you run a command, you can pass in a template. This means you can alternate data, you can if/else. On top of that, `.Date` and `.UniqID` are both special template params that can be used.
 
