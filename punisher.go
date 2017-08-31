@@ -3,12 +3,12 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"html/template"
 	"os"
 	"os/exec"
 	"os/signal"
 	"sync"
 	"syscall"
+	"text/template"
 	"time"
 
 	"github.com/rs/xid"
