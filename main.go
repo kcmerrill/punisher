@@ -9,7 +9,6 @@ import (
 func main() {
 	nice := flag.Duration("nice", 0*time.Second, "A duration to pause after each command")
 	duration := flag.Duration("duration", 0*time.Second, "A duration for length of time to run")
-	status := flag.Duration("status", 10*time.Second, "Interval to show the status")
 	workers := flag.Int("workers", 20, "The amount of workers to spawn to run this task")
 	loopName := flag.String("loop-name", "", "Name of the loop to use")
 	loopEnd := flag.Int("loop-end", 0, "Size to end loop at (requires loop-name flag)")
@@ -22,7 +21,6 @@ func main() {
 	punish(&punisher{
 		nice:          *nice,
 		duration:      *duration,
-		status:        *status,
 		verbose:       *verbose,
 		retry:         *retry,
 		workers:       *workers,

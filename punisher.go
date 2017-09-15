@@ -43,7 +43,6 @@ func punish(p *punisher) {
 type punisher struct {
 	nice          time.Duration
 	duration      time.Duration
-	status        time.Duration
 	workers       int
 	success       int
 	failure       int
@@ -127,35 +126,8 @@ func (p *punisher) pain() {
 		}(id, p.nice, p.cmd, p.loopName)
 	}
 
-	go p.track()
 	go p.shutdown()
 	p.wg.Wait()
-}
-
-func (p *punisher) track() {
-	lime := ansi.ColorCode("green")
-	red := ansi.ColorCode("red")
-	reset := ansi.ColorCode("reset")
-	for {
-		statusColor := lime
-		p.metricsLock.Lock()
-		success := p.success
-		failure := p.failure
-		p.metricsLock.Unlock()
-
-		if success+failure == 0 {
-			continue
-		}
-
-		successRate := (success / (success + failure)) * 100
-
-		if successRate <= 75 {
-			statusColor = red
-		}
-
-		fmt.Print(reset, "---\n", time.Now().String(), "\n", statusColor, "[SUCCESS RATE]", successRate, "%\n", "[ATTEMPTS]", success, "/", (success + failure), reset, "\nCommand:\n\t", p.cmd, "\n---\n\n\n")
-		<-time.After(p.status)
-	}
 }
 
 func (p *punisher) shutdown() {
@@ -173,6 +145,9 @@ func (p *punisher) shutdown() {
 	for workers := 1; workers <= p.workers; workers++ {
 		p.stop <- true
 	}
+
+	// our progress bar
+	p.stop <- true
 }
 
 func (p *punisher) prepCmd(cmd, loopName string, loopIndex int) string {
