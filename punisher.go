@@ -6,30 +6,34 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"strconv"
+	"strings"
 	"sync"
 	"syscall"
 	"text/template"
 	"time"
 
+	"github.com/mgutz/ansi"
 	"github.com/rs/xid"
-
-	pb "gopkg.in/cheggaaa/pb.v1"
 )
 
-func punish(nice, duration time.Duration, verbose bool, workers int, cmd string) {
-	// setup our punisher
-	p := &punisher{
-		nice:     nice,
-		duration: duration,
-		workers:  workers,
-		cmd:      cmd,
-		signals:  make(chan os.Signal, 1),
-		wg:       sync.WaitGroup{},
-		stop:     make(chan bool),
-		verbose:  verbose,
+// create a fake signal
+type punishSignal struct{}
+
+func (p *punishSignal) Signal() {}
+
+func punish(p *punisher) {
+	// init
+	p.signals = make(chan os.Signal, 1)
+	p.wg = sync.WaitGroup{}
+	p.stop = make(chan bool)
+
+	if p.loopIncrement == 0 {
+		// really shouldn't be zero by default ...
+		p.loopIncrement = 1
 	}
 
-	if cmd != "" {
+	if p.cmd != "" {
 		// bring the pain
 		p.pain()
 	}
@@ -37,48 +41,90 @@ func punish(nice, duration time.Duration, verbose bool, workers int, cmd string)
 
 // holds our goods
 type punisher struct {
-	nice     time.Duration
-	duration time.Duration
-	workers  int
-	cmd      string
-	success  int
-	verbose  bool
-	failure  int
-	lock     sync.Mutex
-	stop     chan bool
-	signals  chan os.Signal
-	wg       sync.WaitGroup
+	nice          time.Duration
+	duration      time.Duration
+	status        time.Duration
+	workers       int
+	success       int
+	failure       int
+	verbose       bool
+	retry         bool
+	stop          chan bool
+	signals       chan os.Signal
+	wg            sync.WaitGroup
+	metricsLock   sync.Mutex
+	loopLock      sync.Mutex
+	msgLock       sync.Mutex
+	cmd           string
+	loopIncrement int
+	loopName      string
+	loopEnd       int
+	loopIndex     int
 }
 
 func (p *punisher) pain() {
 	for id := 1; id <= p.workers; id++ {
 		p.wg.Add(1)
-		go func(id int, nice time.Duration, cmd string) {
+		go func(id int, nice time.Duration, cmd, loopName string) {
+			// lets get to work
 			for {
 				select {
 				case <-p.stop:
+					// did we get a shutdown sig?
 					p.wg.Done()
 					return
 				default:
-					<-time.After(nice)
-					cmdParsed := p.prepCmd(cmd)
-					command := exec.Command("sh", "-c", cmdParsed)
-					output, _ := command.CombinedOutput()
-					if !command.ProcessState.Success() {
-						p.lock.Lock()
-						p.failure++
-						p.lock.Unlock()
-						if p.verbose {
-							fmt.Println("id#", id, ">", string(output))
-						}
-					} else {
-						p.lock.Lock()
-						p.success++
-						p.lock.Unlock()
+					// save aside our loop value
+					loopIndex, loopError := p.getLoopIndex()
+
+					if loopError != nil {
+						p.wg.Done()
+						return
 					}
+
+					for {
+						// get our cmd ready
+						cmdParsed := p.prepCmd(cmd, loopName, loopIndex)
+						command := exec.Command("sh", "-c", cmdParsed)
+						output, _ := command.CombinedOutput()
+						ok := command.ProcessState.Success()
+
+						// count it!
+						if !ok {
+							p.metricsLock.Lock()
+							p.failure++
+							p.metricsLock.Unlock()
+
+						} else {
+							p.metricsLock.Lock()
+							p.success++
+							p.metricsLock.Unlock()
+						}
+
+						if p.verbose || (!ok && p.retry) {
+							lime := ansi.ColorCode("green")
+							red := ansi.ColorCode("red")
+							reset := ansi.ColorCode("reset")
+							// if we retry, and there were failures, let everybody know
+							if ok {
+								fmt.Print(lime, "[OK] ", reset, cmdParsed, "\n", string(output), "\n")
+							} else {
+								fmt.Print(red, "[FAILED] ", reset, cmdParsed, "\n", string(output), "\n")
+							}
+						}
+
+						// netflix && chill
+						<-time.After(nice)
+
+						// do we need to retry? If not, continue on ...
+						if ok || !p.retry {
+							break
+						}
+					}
+
 				}
 			}
-		}(id, p.nice, p.cmd)
+		}(id, p.nice, p.cmd, p.loopName)
 	}
 
 	go p.track()
@@ -87,19 +133,28 @@ func (p *punisher) pain() {
 }
 
 func (p *punisher) track() {
-	p.lock.Lock()
-	bar := pb.New(p.failure + p.success)
-	p.lock.Unlock()
-	bar.ShowTimeLeft = false
-	bar.ShowPercent = true
-	bar.ShowSpeed = true
-	bar.Start()
+	lime := ansi.ColorCode("green")
+	red := ansi.ColorCode("red")
+	reset := ansi.ColorCode("reset")
 	for {
-		p.lock.Lock()
-		bar.Total = int64(p.failure + p.success)
-		bar.Set(p.success)
-		p.lock.Unlock()
-		<-time.After(time.Second)
+		statusColor := lime
+		p.metricsLock.Lock()
+		success := p.success
+		failure := p.failure
+		p.metricsLock.Unlock()
+
+		if success+failure == 0 {
+			continue
+		}
+
+		successRate := (success / (success + failure)) * 100
+
+		if successRate <= 75 {
+			statusColor = red
+		}
+
+		fmt.Print(reset, "---\n", time.Now().String(), "\n", statusColor, "[SUCCESS RATE]", successRate, "%\n", "[ATTEMPTS]", success, "/", (success + failure), reset, "\nCommand:\n\t", p.cmd, "\n---\n\n\n")
+		<-time.After(p.status)
 	}
 }
 
@@ -120,14 +175,23 @@ func (p *punisher) shutdown() {
 	}
 }
 
-func (p *punisher) prepCmd(cmd string) string {
+func (p *punisher) prepCmd(cmd, loopName string, loopIndex int) string {
 
 	commandOptions := struct {
-		UniqID string
-		Date   time.Time
+		UniqID    string
+		Date      time.Time
+		LoopName  string
+		LoopIndex int
 	}{
-		UniqID: xid.New().String(),
-		Date:   time.Now(),
+		UniqID:    xid.New().String(),
+		Date:      time.Now(),
+		LoopName:  loopName,
+		LoopIndex: loopIndex,
+	}
+
+	// we need to allow the user to replace a uniq string with the loop iter(for nested loops)
+	if loopName != "" {
+		cmd = strings.Replace(cmd, loopName, strconv.Itoa(loopIndex), -1)
 	}
 
 	tmpl, parseErr := template.New(commandOptions.UniqID).Parse(cmd)
@@ -142,4 +206,31 @@ func (p *punisher) prepCmd(cmd string) string {
 	}
 
 	return cmdParsed.String()
+}
+
+func (p *punisher) getLoopIndex() (int, error) {
+	// ok, lets lock it up
+	p.loopLock.Lock()
+	idx := p.loopIndex
+	ends := p.loopEnd
+	name := p.loopName
+	p.loopIndex = idx + p.loopIncrement
+	p.loopLock.Unlock()
+
+	// keep on keeping on ...
+	if name == "" || ends == 0 {
+		return idx, nil
+	}
+
+	// check
+	if idx > ends {
+		// be gone!
+		go func() {
+			p.signals <- syscall.SIGKILL
+		}()
+		return idx, fmt.Errorf("Reached the end of the loop")
+	}
+
+	// return the goods
+	return idx, nil
 }
