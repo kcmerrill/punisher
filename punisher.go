@@ -74,60 +74,57 @@ func (p *punisher) pain() {
 					// save aside our loop value
 					loopIndex, loopError = p.getLoopIndex()
 				}
-				select {
-				case <-p.stop:
-					// did we get a shutdown sig?
+				if loopError != nil {
 					p.wg.Done()
 					return
-				default:
-					if loopError != nil {
-						p.wg.Done()
-						return
-					}
-					// get our cmd ready
-					cmdParsed := p.prepCmd(cmd, loopName, loopIndex)
-					command := exec.Command("sh", "-c", cmdParsed)
-					output, _ := command.CombinedOutput()
-					ok := command.ProcessState.Success()
+				}
+				// get our cmd ready
+				cmdParsed := p.prepCmd(cmd, loopName, loopIndex)
+				command := exec.Command("sh", "-c", cmdParsed)
+				output, _ := command.CombinedOutput()
+				ok := command.ProcessState.Success()
 
-					// count it!
-					if !ok {
-						p.metricsLock.Lock()
-						p.failure++
-						p.metricsLock.Unlock()
+				// count it!
+				if !ok {
+					p.metricsLock.Lock()
+					p.failure++
+					p.metricsLock.Unlock()
 
+				} else {
+					p.metricsLock.Lock()
+					p.success++
+					p.metricsLock.Unlock()
+				}
+
+				// show the status
+				if p.verbose || (!ok && p.retry) {
+					lime := ansi.ColorCode("green")
+					red := ansi.ColorCode("red")
+					reset := ansi.ColorCode("reset")
+					// if we retry, and there were failures, let everybody know
+					if ok {
+						fmt.Print(lime, "[OK] ", reset, cmdParsed, "\n", string(output), "\n")
+						retry = false
 					} else {
-						p.metricsLock.Lock()
-						p.success++
-						p.metricsLock.Unlock()
-					}
-
-					// show the status
-					if p.verbose || (!ok && p.retry) {
-						lime := ansi.ColorCode("green")
-						red := ansi.ColorCode("red")
-						reset := ansi.ColorCode("reset")
-						// if we retry, and there were failures, let everybody know
-						if ok {
-							fmt.Print(lime, "[OK] ", reset, cmdParsed, "\n", string(output), "\n")
-							retry = false
-						} else {
-							fmt.Print(red, "[FAILED] ", reset, cmdParsed, "\n", string(output), "\n")
-							if p.retry {
-								retry = true
-							}
+						fmt.Print(red, "[FAILED] ", reset, cmdParsed, "\n", string(output), "\n")
+						if p.retry {
+							retry = true
 						}
 					}
+				}
 
-					// netflix && chill
-					if nice != 0*time.Second {
-						<-time.After(nice)
-					}
+				// pause, but also wait for interrupt too
+				select {
+				case <-time.After(nice):
+					break
+				case <-p.stop:
+					p.wg.Done()
+					return
+				}
 
-					// do we need to retry? If not, continue on ...
-					if ok || !p.retry {
-						break
-					}
+				// do we need to retry? If not, continue on ...
+				if ok || !p.retry {
+					break
 				}
 			}
 		}(id, p.nice, p.cmd, p.loopName)
