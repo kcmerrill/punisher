@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -28,14 +29,26 @@ func punish(p *punisher) {
 	p.wg = sync.WaitGroup{}
 	p.stop = make(chan bool)
 
+	p.colors.lime = ansi.ColorCode("green")
+	p.colors.red = ansi.ColorCode("red")
+	p.colors.reset = ansi.ColorCode("reset")
+
 	if p.loopIncrement == 0 {
 		// really shouldn't be zero by default ...
 		p.loopIncrement = 1
 	}
 
+	stat, _ := os.Stdin.Stat()
+	if (stat.Mode() & os.ModeCharDevice) == 0 {
+		in, _ := ioutil.ReadAll(os.Stdin)
+		p.cmd = string(in)
+	}
+
 	if p.cmd != "" {
 		// bring the pain
 		p.pain()
+	} else {
+		fmt.Print(p.colors.red, "[ERROR] ", p.colors.reset, "Invalid command\n")
 	}
 }
 
@@ -59,6 +72,11 @@ type punisher struct {
 	loopName      string
 	loopEnd       int
 	loopIndex     int
+	colors        struct {
+		red   string
+		reset string
+		lime  string
+	}
 }
 
 func (p *punisher) pain() {
@@ -70,61 +88,66 @@ func (p *punisher) pain() {
 			var loopIndex int
 			var loopError error
 			for {
-				if !retry {
-					// save aside our loop value
-					loopIndex, loopError = p.getLoopIndex()
-				}
-				if loopError != nil {
-					p.wg.Done()
-					return
-				}
-				// get our cmd ready
-				cmdParsed := p.prepCmd(cmd, loopName, loopIndex)
-				command := exec.Command("sh", "-c", cmdParsed)
-				output, _ := command.CombinedOutput()
-				ok := command.ProcessState.Success()
-
-				// count it!
-				if !ok {
-					p.metricsLock.Lock()
-					p.failure++
-					p.metricsLock.Unlock()
-
-				} else {
-					p.metricsLock.Lock()
-					p.success++
-					p.metricsLock.Unlock()
-				}
-
-				// show the status
-				if p.verbose || (!ok && p.retry) {
-					lime := ansi.ColorCode("green")
-					red := ansi.ColorCode("red")
-					reset := ansi.ColorCode("reset")
-					// if we retry, and there were failures, let everybody know
-					if ok {
-						fmt.Print(lime, "[OK] ", reset, cmdParsed, "\n", string(output), "\n")
-						retry = false
-					} else {
-						fmt.Print(red, "[FAILED] ", reset, cmdParsed, "\n", string(output), "\n")
-						if p.retry {
-							retry = true
-						}
-					}
-				}
-
-				// pause, but also wait for interrupt too
 				select {
-				case <-time.After(nice):
-					break
 				case <-p.stop:
 					p.wg.Done()
 					return
-				}
+				default:
+					for {
+						if !retry {
+							// save aside our loop value
+							loopIndex, loopError = p.getLoopIndex()
+						}
+						if loopError != nil {
+							p.wg.Done()
+							return
+						}
+						// get our cmd ready
+						cmdParsed := p.prepCmd(cmd, loopName, loopIndex)
+						command := exec.Command("sh", "-c", cmdParsed)
+						output, _ := command.CombinedOutput()
+						ok := command.ProcessState.Success()
 
-				// do we need to retry? If not, continue on ...
-				if ok || !p.retry {
-					break
+						// count it!
+						if !ok {
+							p.metricsLock.Lock()
+							p.failure++
+							p.metricsLock.Unlock()
+
+						} else {
+							p.metricsLock.Lock()
+							p.success++
+							p.metricsLock.Unlock()
+						}
+
+						// show the status
+						if p.verbose || (!ok && p.retry) {
+							// if we retry, and there were failures, let everybody know
+							if ok {
+								fmt.Print(p.colors.lime, "[OK] ", p.colors.reset, cmdParsed, "\n", string(output), "\n")
+								retry = false
+							} else {
+								fmt.Print(p.colors.red, "[FAILED] ", p.colors.reset, cmdParsed, "\n", string(output), "\n")
+								if p.retry {
+									retry = true
+								}
+							}
+						}
+
+						// pause, but also wait for interrupt too
+						select {
+						case <-time.After(nice):
+							break
+						case <-p.stop:
+							p.wg.Done()
+							return
+						}
+
+						// do we need to retry? If not, continue on ...
+						if ok || !p.retry {
+							break
+						}
+					}
 				}
 			}
 		}(id, p.nice, p.cmd, p.loopName)
