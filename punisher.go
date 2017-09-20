@@ -104,10 +104,11 @@ func (p *punisher) pain() {
 						}
 						// get our cmd ready
 						cmdParsed := p.prepCmd(cmd, loopName, loopIndex)
+						cmdStarted := time.Now()
 						command := exec.Command("sh", "-c", cmdParsed)
 						output, _ := command.CombinedOutput()
+						cmdElapsedTime := time.Since(cmdStarted).Round(time.Second).String()
 						ok := command.ProcessState.Success()
-
 						// count it!
 						if !ok {
 							p.metricsLock.Lock()
@@ -124,10 +125,10 @@ func (p *punisher) pain() {
 						if p.verbose || (!ok && p.retry) {
 							// if we retry, and there were failures, let everybody know
 							if ok {
-								fmt.Print(p.colors.lime, "[OK] ", p.colors.reset, cmdParsed, "\n", string(output), "\n")
+								fmt.Print(cmdElapsedTime, p.colors.lime, " [OK] ", p.colors.reset, cmdParsed, "\n", string(output), "\n")
 								retry = false
 							} else {
-								fmt.Print(p.colors.red, "[FAILED] ", p.colors.reset, cmdParsed, "\n", string(output), "\n")
+								fmt.Print(cmdElapsedTime, p.colors.red, " [FAILED] ", p.colors.reset, cmdParsed, "\n", string(output), "\n")
 								if p.retry {
 									retry = true
 								}
