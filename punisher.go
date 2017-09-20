@@ -173,9 +173,6 @@ func (p *punisher) shutdown() {
 	for workers := 1; workers <= p.workers; workers++ {
 		p.stop <- true
 	}
-
-	// our progress bar
-	p.stop <- true
 }
 
 func (p *punisher) prepCmd(cmd, loopName string, loopIndex int) string {
