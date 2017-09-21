@@ -24,13 +24,13 @@ $> punisher curl https://kcmerrill.com
 ### Parameters
 * `workers` are how many workers to run
 * `duration` how long should this run for? Default is forever.
-* **nice** golang `duration` after a command is run(A simple way to throttle or batch)
-* **loop** If set to a non empty string, will create a loop and a counter(more info below)
-* **loop-starts-at** Int to start a loop counter at (defaults to zero)
-* **loop-ends-at** Int to end the loop counter at (defaults to max int)
-* **loop-increment-by** Int to increment the loop counter by
-* **retry** If set, will try to retry the command before moving on
-* **verbose** Displays the command + success/failure + duration of command
+* `nice`` golang `duration` after a command is run(A simple way to throttle or batch)
+* `loop` If set to a non empty string, will create a loop and a counter(more info below)
+* `loop-starts-at` Int to start a loop counter at (defaults to zero)
+* `loop-ends-at` Int to end the loop counter at (defaults to max int)
+* `loop-increment-by` Int to increment the loop counter by
+* `retry` If set, will try to retry the command before moving on
+* `verbose` Displays the command + success/failure + duration of command
 
 ### Templated Commands
 
