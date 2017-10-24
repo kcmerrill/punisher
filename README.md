@@ -19,8 +19,6 @@ $> punisher --workers <int:100> --nice <duration:0s> --duration <duration:foreve
 $> punisher curl https://kcmerrill.com
 ```
 
-[![asciicast](https://asciinema.org/a/135154.png)](https://asciinema.org/a/138531)
-
 ### Parameters
 * `workers` are how many workers to run
 * `duration` how long should this run for? Default is forever.
